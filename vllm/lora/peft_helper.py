@@ -6,9 +6,10 @@
 import json
 import math
 import os
-import re
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Literal
+
+import regex as re
 
 from vllm.config.lora import LoRAConfig
 from vllm.logger import init_logger
@@ -103,6 +104,12 @@ class PEFTHelper:
             raise ValueError(f"LoRA rank `r` must be a positive integer, got {self.r}.")
         self.rank_pattern = self.rank_pattern or {}
         self.alpha_pattern = self.alpha_pattern or {}
+        for key, rank in self.rank_pattern.items():
+            if not isinstance(rank, int) or rank <= 0:
+                raise ValueError(
+                    f"LoRA rank for `{key}` in `rank_pattern` must be a positive "
+                    f"integer, got {rank}."
+                )
         if self.use_rslora:
             logger.info_once("Loading LoRA weights trained with rsLoRA.")
         self.vllm_lora_scaling_factor = self._scaling(self.r, self.lora_alpha)
@@ -137,7 +144,9 @@ class PEFTHelper:
             module_name = module_name.removesuffix(".base_layer") + ".gate_up_proj"
         elif module_name.endswith(".experts"):
             module_name += ".down_proj"
-        rank = self._match_pattern(self.rank_pattern, module_name) or self.r
+        rank = self._match_pattern(self.rank_pattern, module_name)
+        if rank is None:
+            rank = self.r
         alpha = self._match_pattern(self.alpha_pattern, module_name)
         if alpha is None:
             alpha = self.lora_alpha

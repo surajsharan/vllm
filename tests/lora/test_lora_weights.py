@@ -80,6 +80,15 @@ def test_moe_packing_keeps_per_expert_scaling():
         torch.testing.assert_close(lora_b, torch.stack(expected[i::3]))
 
 
+def test_moe_packing_rejects_per_expert_rank():
+    """Experts of one projection must share a rank to be stacked."""
+    loras = moe_loras(1.0) + moe_loras(1.0)
+    loras[4].lora_a = torch.randn(RANK // 2, 4)
+    loras[4].lora_b = torch.randn(6, RANK // 2)
+    with pytest.raises(ValueError, match="different LoRA ranks"):
+        PackedLoRALayerWeights.pack_moe(loras, "experts")
+
+
 def test_from_config_uses_checkpoint_module_name():
     peft_helper = PEFTHelper(
         r=RANK,

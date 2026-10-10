@@ -247,3 +247,14 @@ def test_peft_helper_null_patterns():
         }
     )
     assert peft_helper.get_rank_and_scaling("model.q_proj") == (8, 2.0)
+
+
+@pytest.mark.parametrize("bad_rank", [0, -4, 2.5])
+def test_peft_helper_invalid_rank_pattern(bad_rank):
+    with pytest.raises(ValueError, match="rank_pattern"):
+        PEFTHelper(
+            r=8,
+            lora_alpha=16,
+            target_modules=["q_proj"],
+            rank_pattern={"q_proj": bad_rank},
+        )

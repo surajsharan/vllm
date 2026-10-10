@@ -175,13 +175,18 @@ class PackedLoRALayerWeights(LoRALayerWeights):
         rank = first_lora.rank
         lora_alpha = first_lora.lora_alpha
         assert len(loras) % 3 == 0
-        # The packed LoRA has one scaling per projection, so fold it into lora_b
-        # where the experts of a projection differ (e.g. from alpha_pattern).
         for proj_loras in (loras[0::3], loras[1::3], loras[2::3]):
-            if len({lora.scaling for lora in proj_loras if lora is not None}) > 1:
-                for lora in proj_loras:
-                    if lora is not None:
-                        lora.optimize()
+            experts = [lora for lora in proj_loras if lora is not None]
+            if len({lora.lora_a.shape[0] for lora in experts}) > 1:
+                raise ValueError(
+                    f"The experts of {module_name} have different LoRA ranks for "
+                    "the same projection, which is not supported."
+                )
+            # The packed LoRA has one scaling per projection, so fold it into
+            # lora_b where the experts differ (e.g. from alpha_pattern).
+            if len({lora.scaling for lora in experts}) > 1:
+                for lora in experts:
+                    lora.optimize()
         w1_lora_a_lst = []
         w2_lora_a_lst = []
         w3_lora_a_lst = []
